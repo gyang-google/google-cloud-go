@@ -1065,7 +1065,7 @@ func extractRowValue(row *spanner.Row, i int, t *sppb.Type) (*executorpb.Value, 
 		if err != nil {
 			return nil, err
 		}
-		val.ValueType = &executorpb.Value_StringValue{StringValue: strconv.FormatInt(v, 10)}
+		val.ValueType = &executorpb.Value_IntValue{IntValue: v}
 	case sppb.TypeCode_FLOAT64:
 		var v float64
 		err = row.Column(i, &v)
@@ -1466,6 +1466,9 @@ func errToStatus(e error) *spb.Status {
 	}
 	if status.Code(e) == codes.Aborted {
 		return &spb.Status{Code: int32(codes.Aborted), Message: e.Error()}
+	}
+	if status.Code(e) == codes.NotFound {
+		return &spb.Status{Code: int32(codes.NotFound), Message: e.Error()}
 	}
 	return &spb.Status{Code: int32(codes.Internal), Message: e.Error()}
 }

@@ -13,6 +13,7 @@ import (
 
 	"cloud.google.com/go/spanner/executor/executor"
 	executorpb "cloud.google.com/go/spanner/executor/proto"
+	"golang.org/x/oauth2"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -44,8 +45,7 @@ func main() {
 		// portpicker not available, should we instead return a fatal
 		// log.Fatalf("usage: %s --port=8081", os.Args[0])
 	}
-	fmt.Printf("Server started on proxyPort:%s\n", *port)
-	log.Printf("Server started on proxyPort:%s\n", *port)
+	log.Printf("My server started on proxyPort:%s\n", *port)
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", *port))
 	if err != nil {
@@ -70,12 +70,11 @@ func main() {
 func getClientOptions() []option.ClientOption {
 	var options []option.ClientOption
 
-	endpoint := "https://localhost:" + *spanner_port
-	endpoint2 := "localhost:" + *spanner_port
-	log.Printf("endpoint for grpc dial :  %s", endpoint2)
+	endpoint := "127.0.0.1:" + *spanner_port
+	log.Printf("endpoint for grpc dial :  %s", endpoint)
 
 	options = append(options, option.WithEndpoint(endpoint))
-	options = append(options, option.WithCredentialsFile(*service_key_file))
+	// options = append(options, option.WithCredentialsFile(*service_key_file))
 
 	// Create TLS credentials from the certificate and key files.
 	//creds, err := credentials.NewClientTLSFromFile(*cert, "test-cert-2")
@@ -87,18 +86,29 @@ func getClientOptions() []option.ClientOption {
 		log.Fatalf("Failed to load TLS credentials: %v", err)
 	}*/
 
-	creds, err := credentials.NewClientTLSFromFile(*cert, "")
+	//cp := x509.NewCertPool()
+	//if !cp.AppendCertsFromPEM([]byte(testCaCert)) {
+	//	return nil, fmt.Errorf("failed to append test certificates")
+	//}
+	//creds := credentials.NewTLS(&tls.Config{
+	//	ServerName: "test_cert_2",
+	//	RootCAs:    cp,
+	//})
+
+	creds, err := credentials.NewClientTLSFromFile(*cert, "test-cert-2")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	conn, err := grpc.Dial(endpoint2, grpc.WithTransportCredentials(creds))
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	options = append(options, option.WithGRPCConn(conn))
+	options = append(options, option.WithTokenSource(&fakeTokenSource{}))
+	options = append(options, option.WithGRPCDialOption(grpc.WithTransportCredentials(creds)))
 	return options
+}
+
+type fakeTokenSource struct{}
+
+func (f *fakeTokenSource) Token() (*oauth2.Token, error) {
+	return &oauth2.Token{AccessToken: "fake token for test"}, nil
 }
 
 func loadTLSCredentials() (credentials.TransportCredentials, error) {
